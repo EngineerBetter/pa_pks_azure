@@ -6,7 +6,7 @@ interpolate-creds: &interpolate-creds
     CREDHUB_SECRET: ((credhub-secret))
     CREDHUB_SERVER: ((credhub-server))
     CREDHUB_CA_CERT: ((credhub-ca-cert))
-    PREFIX: '/pks/test'
+    PREFIX: '/concourse/main/pks-azure'
     SKIP_MISSING: true
   input_mapping:
     files: configuration
@@ -25,6 +25,12 @@ resource_types:
     repository: pivotalcf/pivnet-resource
     tag: latest-final
 
+- name: terraform
+  type: docker-image
+  source:
+    repository: ljfranklin/terraform-resource
+    tag: 0.11.14
+
 resources:
 - name: configuration
   type: git
@@ -32,6 +38,24 @@ resources:
     private_key: ((github_private_key))
     uri: git@github.com:EngineerBetter/pa_pks_azure.git
     branch: master
+
+- name: terraforming-azure-tarball
+  type: github-release
+  source:
+    owner: pivotal-cf
+    repository: terraforming-azure
+    access_token: ((github_access_token))
+
+- name: terraform-infra
+  type: terraform
+  source:
+    env_name: pks
+    backend_type: azurerm
+    backend_config:
+      storage_account_name: ((storage_account_name))
+      container_name: resources
+      key: terraform.tfstate
+      access_key: ((storage_account_key))
 
 - name: installation
   type: azure-blobstore
@@ -92,9 +116,51 @@ resources:
     interval: 24h
 
 jobs:
+- name: terraform-infra
+  serial: true
+  serial_groups:
+  - install
+  plan:
+  - in_parallel:
+    - get: terraforming-azure-tarball
+    - get: platform-automation-image
+      resource: platform-automation
+      params:
+        unpack: true
+        globs:
+        - "*.tgz"
+  - task: extract-tf-files
+    image: platform-automation-image
+    config:
+      platform: linux
+      inputs:
+      - name: terraforming-azure-tarball
+      outputs:
+      - name: terraforming-azure
+      run:
+        path: bash
+        args:
+        - -euc
+        - |
+          version=$(cat terraforming-azure-tarball/version)
+          tar xzf terraforming-azure-tarball/"terraforming-azure-v${version}.tar.gz" -C terraforming-azure
+  - put: terraform-infra
+    params:
+      terraform_source: terraforming-azure/terraforming/terraforming-pks
+      vars:
+        subscription_id: ((subscription_id))
+        tenant_id: ((tenant_id))
+        client_id: ((client_id))
+        client_secret: ((client_secret))
+        env_name: pks
+        location: UK South
+        dns_suffix: azure.engineerbetter.com
+        ops_manager_image_uri: ""
+
 - name: install-opsman
   serial: true
-  serial_groups: [ install ]
+  serial_groups:
+  - install
   plan:
     - in_parallel:
       - get: one-time-trigger
@@ -117,6 +183,9 @@ jobs:
           - "ops-manager-azure-*.yml"
       - get: configuration
       - get: state
+      - get: terraform-infra
+        passed:
+        - terraform-infra
     - task: interpolate-creds
       <<: *interpolate-creds
     - task: create-vm
@@ -126,6 +195,7 @@ jobs:
         image: ops-manager
         config: interpolated-creds
       params:
+        OPSMAN_CONFIG_FILE: config/opsman.yml
         STATE_FILE: state-pks.yml
       ensure: &put-state
         do:
@@ -139,6 +209,9 @@ jobs:
       input_mapping:
         env: interpolated-creds
         config: interpolated-creds
+      params:
+        ENV_FILE: env/config/env.yml
+        AUTH_CONFIG_FILE: config/config/auth.yml
     - task: configure-director
       image: platform-automation-image
       file: platform-automation-tasks/tasks/configure-director.yml
@@ -190,7 +263,8 @@ jobs:
 
 - name: upgrade-opsman
   serial: true
-  serial_groups: [ install ]
+  serial_groups:
+  - install
   plan:
   - in_parallel:
     - get: platform-automation-image
