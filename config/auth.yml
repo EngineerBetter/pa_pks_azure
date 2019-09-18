@@ -1,4 +1,4 @@
 ---
 username: admin
-password: supersecure
-decryption-passphrase: supersecure
+password: ((opsman_pw))
+decryption-passphrase: ((opsman_pw))
