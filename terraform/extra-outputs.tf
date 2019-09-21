@@ -3,11 +3,11 @@ output "infrastructure_subnet_reserved" {
 }
 
 output "services_subnet_reserved" {
-  value = "${cidrhost(module.infra.services_subnet_cidr, 1)}-${cidrhost(module.infra.services_subnet_cidr, 9)}"
+  value = "${cidrhost(module.pks.services_subnet_cidr, 1)}-${cidrhost(module.pks.services_subnet_cidr, 9)}"
 }
 
 output "pks_subnet_reserved" {
-  value = "${cidrhost(module.infra.pks_subnet_cidr, 1)}-${cidrhost(module.infra.pks_subnet_cidr, 9)}"
+  value = "${cidrhost(module.pks.pks_subnet_cidr, 1)}-${cidrhost(module.pks.pks_subnet_cidr, 9)}"
 }
 
 output "location" {

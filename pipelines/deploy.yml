@@ -196,7 +196,7 @@ jobs:
         - |
           version=$(cat terraforming-azure-tarball/version)
           tar xzf terraforming-azure-tarball/"terraforming-azure-v${version}.tar.gz" -C terraforming-azure
-          cp configuration-repo/terraform/extra-outputs.tf terraforming-azure/terraforming-pks/extra-outputs.tf
+          mv configuration-repo/terraform/extra-outputs.tf terraforming-azure/terraforming/terraforming-pks/
   - put: terraform-infra
     params:
       terraform_source: terraforming-azure/terraforming/terraforming-pks
