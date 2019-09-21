@@ -186,6 +186,7 @@ jobs:
       platform: linux
       inputs:
       - name: terraforming-azure-tarball
+      - name: configuration-repo
       outputs:
       - name: terraforming-azure
       run:
