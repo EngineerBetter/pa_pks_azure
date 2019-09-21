@@ -1,4 +1,4 @@
 ---
 username: admin
-password: ((opsman_pw))
-decryption-passphrase: ((opsman_pw))
+password: ((opsman_password))
+decryption-passphrase: ((opsman_decryption_passphrase))

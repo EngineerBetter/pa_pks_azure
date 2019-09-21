@@ -1,21 +1,21 @@
 ---
 opsman-configuration:
   azure:
-    subscription_id: ((subscription_id))
-    resource_group: pks
-    tenant_id: ((tenant_id))
-    client_id: ((client_id))
-    client_secret: ((client_secret))
-    location: uksouth
-    container: opsmanagerimage                    # container for opsman image
-    network_security_group: pks-ops-manager-security-group
+    subscription_id: {{.subscription_id}}
+    tenant_id: {{.tenant_id}}
+    client_id: {{.client_id}}
+    client_secret: {{.client_secret}}
+    resource_group: {{.resource_group_name}}
+    location: {{.location}}
+    container: opsmanagerimage
+    network_security_group: {{.ops_manager_security_group_name}}
 
     # Note that there are several environment-specific details in this path
-    vpc_subnet: /subscriptions/((subscription_id))/resourceGroups/pks/providers/Microsoft.Network/virtualNetworks/pks-virtual-network/subnets/pks-infrastructure-subnet
+    vpc_subnet: /subscriptions/{{.subscription_id}}/resourceGroups/{{.resource_group_name}}/providers/Microsoft.Network/virtualNetworks/{{.network_name}}/subnets/{{.infrastructure_subnet_name}}
 
-    storage_account: ((ops_man_storage_account))
+    storage_account: {{.ops_manager_storage_account}}
 
-    ssh_public_key: ((ops_man_public_key))
+    ssh_public_key: {{.ops_manager_ssh_public_key}}
     vm_name: ops-manager-vm                       # default: Ops Manager-vm
     boot_disk_size: 100                           # default: 200
     cloud_name: AzureCloud                        # default: AzureCloud
@@ -28,5 +28,5 @@ opsman-configuration:
     # At least one IP address (public or private)
     # needs to be assigned to the VM.
     # It is also permissable to assign both.
-    public_ip: 51.140.102.14
-    private_ip: 10.0.8.4
+    public_ip: {{.ops_manager_public_ip}}
+    private_ip: {{.ops_manager_private_ip}}
