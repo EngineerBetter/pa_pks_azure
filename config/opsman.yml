@@ -29,5 +29,4 @@ opsman-configuration:
     # needs to be assigned to the VM.
     # It is also permissable to assign both.
     public_ip: {{.ops_manager_public_ip}}
-    private_ip: |
-{{indent 4 .ops_manager_private_ip}}
+    private_ip: {{.ops_manager_private_ip}}
