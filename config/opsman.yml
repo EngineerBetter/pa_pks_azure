@@ -5,13 +5,13 @@ opsman-configuration:
     tenant_id: {{.tenant_id}}
     client_id: {{.client_id}}
     client_secret: {{.client_secret}}
-    resource_group: {{.resource_group_name}}
+    resource_group: {{.pcf_resource_group_name}}
     location: {{.location}}
     container: opsmanagerimage
     network_security_group: {{.ops_manager_security_group_name}}
 
     # Note that there are several environment-specific details in this path
-    vpc_subnet: /subscriptions/{{.subscription_id}}/resourceGroups/{{.resource_group_name}}/providers/Microsoft.Network/virtualNetworks/{{.network_name}}/subnets/{{.infrastructure_subnet_name}}
+    vpc_subnet: /subscriptions/{{.subscription_id}}/resourceGroups/{{.pcf_resource_group_name}}/providers/Microsoft.Network/virtualNetworks/{{.network_name}}/subnets/{{.infrastructure_subnet_name}}
 
     storage_account: {{.ops_manager_storage_account}}
 

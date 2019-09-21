@@ -1,26 +1,5 @@
 interpolate-creds: &interpolate-creds
   do:
-  - task: credhub-interpolate
-    image: platform-automation-image
-    file: platform-automation-tasks/tasks/credhub-interpolate.yml
-    params:
-      CREDHUB_CLIENT: credhub_admin
-      CREDHUB_SECRET: ((credhub-secret))
-      CREDHUB_SERVER: ((credhub-server))
-      CREDHUB_CA_CERT: ((credhub-ca-cert))
-      PREFIX: '/concourse/main/pks-azure'
-      SKIP_MISSING: true
-    input_mapping:
-      files: configuration-repo
-    output_mapping:
-      interpolated-files: interpolated-creds
-  - task: merge-files
-    image: platform-automation-image
-    file: configuration-repo/tasks/merge-files/task.yml
-    input_mapping:
-      files: configuration-repo
-    output_mapping:
-      interpolated-files: merged-files
   - in_parallel:
     - get: texplate-binary
       params:
@@ -39,8 +18,29 @@ interpolate-creds: &interpolate-creds
       texplate: texplate-binary
       jq: jq-binary
       files: configuration-repo
+    output_mapping:
+      interpolated-files: interpolated-tf-files
     params:
       INTERPOLATION_PATHS: config/
+  - task: credhub-interpolate
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/credhub-interpolate.yml
+    params:
+      CREDHUB_CLIENT: credhub_admin
+      CREDHUB_SECRET: ((credhub-secret))
+      CREDHUB_SERVER: ((credhub-server))
+      CREDHUB_CA_CERT: ((credhub-ca-cert))
+      PREFIX: '/concourse/main/pks-azure'
+      SKIP_MISSING: true
+    input_mapping:
+      files: interpolated-tf-files
+    output_mapping:
+      interpolated-files: interpolated-creds
+  - task: merge-files
+    image: platform-automation-image
+    file: configuration-repo/tasks/merge-files/task.yml
+    input_mapping:
+      files: configuration-repo
 
 put-state: &put-state
   do:
