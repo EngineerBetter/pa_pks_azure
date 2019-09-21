@@ -55,7 +55,7 @@ properties-configuration:
     environment: AzureCloud
     resource_group_name: {{.pcf_resource_group_name}}
     ssh_private_key: |
-  {{indent 6 .ops_manager_ssh_private_key}}
+{{indent 6 .ops_manager_ssh_private_key}}
     ssh_public_key: {{.ops_manager_ssh_public_key}}
     storage_account_type: Premium_LRS
     subscription_id: {{.subscription_id}}
