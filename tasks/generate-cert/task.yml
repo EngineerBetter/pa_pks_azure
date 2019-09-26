@@ -17,4 +17,4 @@ params:
   CERT_FILE:
 
 run:
-  path: files/tasks/tfstate-interpolate/task.sh
+  path: files/tasks/generate-cert/task.sh
