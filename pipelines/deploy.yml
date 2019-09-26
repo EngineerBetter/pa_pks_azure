@@ -46,7 +46,7 @@ put-state: &put-state
   do:
   - put: state
     params:
-      file: generated-state/state-pks.yml
+      file: generated-state/state-pks-*.yml
 
 resource_types:
 - name: azure-blobstore
@@ -205,9 +205,9 @@ jobs:
         tenant_id: ((tenant_id))
         client_id: ((client_id))
         client_secret: ((client_secret))
-        env_name: pks
-        location: UK South
-        dns_suffix: azure.engineerbetter.com
+        env_name: ((resource_group))
+        location: ((location))
+        dns_suffix: ((dns_suffix))
         ops_manager_image_uri: ""
 
 - name: install-opsman
@@ -250,7 +250,7 @@ jobs:
         config: interpolated-files
       params:
         OPSMAN_CONFIG_FILE: config/opsman.yml
-        STATE_FILE: state-pks.yml
+        STATE_FILE: state-pks-$timestamp.yml
       ensure: *put-state
     - task: configure-authentication
       image: platform-automation-image
@@ -276,44 +276,53 @@ jobs:
       file: platform-automation-tasks/tasks/apply-director-changes.yml
       input_mapping:
         env: interpolated-files
+      params:
+        ENV_FILE: config/env.yml
 
 - name: export-installation
   serial: true
   plan:
-    - in_parallel:
-      - get: daily-trigger
-        trigger: true
-      - get: state
+  - in_parallel:
+    - get: daily-trigger
+      trigger: true
+    - get: state
+      passed:
+      - install-opsman
+    - get: platform-automation-image
+      resource: platform-automation
+      params:
+        unpack: true
+        globs:
+        - "*.tgz"
+    - get: platform-automation-tasks
+      resource: platform-automation
+      params:
+        globs:
+        - "*.zip"
+        unpack: true
         passed:
         - install-opsman
-      - get: platform-automation-image
-        resource: platform-automation
-        params:
-          unpack: true
-          globs:
-          - "*.tgz"
-      - get: platform-automation-tasks
-        resource: platform-automation
-        params:
-          globs:
-          - "*.zip"
-          unpack: true
-          passed: [ install-opsman ]
-      - get: configuration-repo
-        passed:
-        - terraform-infra
-        trigger: true
-    - <<: *interpolate-creds
-    - task: export-installation
-      image: platform-automation-image
-      file: platform-automation-tasks/tasks/export-installation.yml
-      input_mapping:
-        env: interpolated-files
+    - get: configuration-repo
+      passed:
+      - terraform-infra
+      trigger: true
+    - get: terraform-infra
+      passed:
+      - terraform-infra
       params:
-        INSTALLATION_FILE: pks-installation-$timestamp.zip
-    - put: installation
-      params:
-        file: installation/pks-installation*.zip
+        output_statefile: true
+  - <<: *interpolate-creds
+  - task: export-installation
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/export-installation.yml
+    input_mapping:
+      env: interpolated-files
+    params:
+      ENV_FILE: config/env.yml
+      INSTALLATION_FILE: pks-installation-$timestamp.zip
+  - put: installation
+    params:
+      file: installation/pks-installation*.zip
 
 - name: upgrade-opsman
   serial: true
@@ -334,7 +343,8 @@ jobs:
         - "*.zip"
         unpack: true
     - get: installation
-      passed: [ export-installation ]
+      passed:
+      - export-installation
     - get: configuration-repo
       trigger: true
       passed:
@@ -344,6 +354,11 @@ jobs:
       params:
         globs:
         - "ops-manager-azure-*.yml"
+    - get: terraform-infra
+      passed:
+      - export-installation
+      params:
+        output_statefile: true
   - <<: *interpolate-creds
   - task: upgrade-opsman
     image: platform-automation-image
@@ -353,8 +368,10 @@ jobs:
       config: interpolated-files
       env: interpolated-files
     params:
-      STATE_FILE: state-pks.yml
+      STATE_FILE: state-pks-$timestamp.yml
       INSTALLATION_FILE: pks-installation*.zip
+      OPSMAN_CONFIG_FILE: config/opsman.yml
+      ENV_FILE: config/env.yml
     ensure: *put-state
   - task: configure-director
     image: platform-automation-image
@@ -362,107 +379,134 @@ jobs:
     input_mapping:
       config: interpolated-files
       env: interpolated-files
+    params:
+      DIRECTOR_CONFIG_FILE: config/director.yml
+      ENV_FILE: config/env.yml
   - task: apply-director-changes
     image: platform-automation-image
     file: platform-automation-tasks/tasks/apply-director-changes.yml
     input_mapping:
       env: interpolated-files
+    params:
+      ENV_FILE: config/env.yml
 
 - name: upload-and-stage-pks
   serial: true
   plan:
-    - in_parallel:
-      - get: platform-automation-image
-        resource: platform-automation
-        params:
-          unpack: true
-          globs:
-          - "*.tgz"
-      - get: platform-automation-tasks
-        resource: platform-automation
-        params:
-          globs:
-          - "*.zip"
-          unpack: true
-      - get: configuration-repo
-        trigger: true
-        passed:
-        - upgrade-opsman
-      - get: pks
-        params:
-          globs:
-          - "*.pivotal"
-      - get: pks-stemcell
-        params:
-          globs:
-          - "bosh-stemcell-*-azure-hyperv-ubuntu-xenial-go_agent.tgz"
-    - <<: *interpolate-creds
-    - task: upload-and-stage-product
-      image: platform-automation-image
-      file: platform-automation-tasks/tasks/upload-and-stage-product.yml
-      input_mapping:
-        product: pks
-        env: interpolated-files
-    - task: upload-pks-stemcell
-      image: platform-automation-image
-      file: platform-automation-tasks/tasks/upload-stemcell.yml
-      input_mapping:
-        env: interpolated-files
-        stemcell: pks-stemcell
+  - in_parallel:
+    - get: platform-automation-image
+      resource: platform-automation
+      params:
+        unpack: true
+        globs:
+        - "*.tgz"
+    - get: platform-automation-tasks
+      resource: platform-automation
+      params:
+        globs:
+        - "*.zip"
+        unpack: true
+    - get: configuration-repo
+      trigger: true
+      passed:
+      - upgrade-opsman
+    - get: pks
+      params:
+        globs:
+        - "*.pivotal"
+    - get: pks-stemcell
+      params:
+        globs:
+        - "bosh-stemcell-*-azure-hyperv-ubuntu-xenial-go_agent.tgz"
+    - get: terraform-infra
+      passed:
+      - upgrade-opsman
+      params:
+        output_statefile: true
+  - <<: *interpolate-creds
+  - task: upload-and-stage-product
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/upload-and-stage-product.yml
+    input_mapping:
+      product: pks
+      env: interpolated-files
+    params:
+      ENV_FILE: config/env.yml
+  - task: upload-pks-stemcell
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/upload-stemcell.yml
+    input_mapping:
+      env: interpolated-files
+      stemcell: pks-stemcell
+    params:
+      ENV_FILE: config/env.yml
 
 - name: configure-pks
   serial: true
   plan:
-    - in_parallel:
-      - get: platform-automation-image
-        resource: platform-automation
-        params:
-          unpack: true
-          globs:
-          - "*.tgz"
-      - get: platform-automation-tasks
-        resource: platform-automation
-        params:
-          globs:
-          - "*.zip"
-          unpack: true
-      - get: configuration-repo
-        trigger: true
-        passed:
-        - upload-and-stage-pks
-    - <<: *interpolate-creds
-    - task: configure-pks
-      image: platform-automation-image
-      file: platform-automation-tasks/tasks/configure-product.yml
-      input_mapping:
-        config: interpolated-files
-        env: interpolated-files
+  - in_parallel:
+    - get: platform-automation-image
+      resource: platform-automation
       params:
-        CONFIG_FILE: pks.yml
+        unpack: true
+        globs:
+        - "*.tgz"
+    - get: platform-automation-tasks
+      resource: platform-automation
+      params:
+        globs:
+        - "*.zip"
+        unpack: true
+    - get: configuration-repo
+      trigger: true
+      passed:
+      - upload-and-stage-pks
+  - <<: *interpolate-creds
+  - task: generate-certificate
+    image: platform-automation-image
+    file: interpolated-files/tasks/generate-cert/task.yml
+    input_mapping:
+      files: interpolated-files
+      env: interpolated-files
+    params:
+      ENV_FILE: config/env.yml
+      DOMAINS: "*.((dns_suffix))"
+      CERT_FILE: config/pks_cert.yml
+  - task: configure-pks
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/configure-product.yml
+    input_mapping:
+      config: interpolated-files
+      env: interpolated-files
+      vars: certificate
+    params:
+      CONFIG_FILE: config/pks.yml
+      VARS_FILES: |
+        vars/cert.yml
 
 - name: apply-product-changes
   serial: true
   plan:
-    - in_parallel:
-      - get: platform-automation-image
-        resource: platform-automation
-        params:
-          unpack: true
-          globs:
-          - "*.tgz"
-      - get: platform-automation-tasks
-        resource: platform-automation
-        params:
-          globs:
-          - "*.zip"
-          unpack: true
-      - get: configuration-repo
-        trigger: true
-        passed:
-        - configure-pks
-    - <<: *interpolate-creds
-    - task: apply-product-changes
-      image: platform-automation-image
-      file: platform-automation-tasks/tasks/apply-changes.yml
-      input_mapping:
-        env: interpolated-files
+  - in_parallel:
+    - get: platform-automation-image
+      resource: platform-automation
+      params:
+        unpack: true
+        globs:
+        - "*.tgz"
+    - get: platform-automation-tasks
+      resource: platform-automation
+      params:
+        globs:
+        - "*.zip"
+        unpack: true
+    - get: configuration-repo
+      trigger: true
+      passed:
+      - configure-pks
+  - <<: *interpolate-creds
+  - task: apply-product-changes
+    image: platform-automation-image
+    file: platform-automation-tasks/tasks/apply-changes.yml
+    input_mapping:
+      env: interpolated-files

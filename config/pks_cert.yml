@@ -1,0 +1,3 @@
+pivotal-container-service_pks_tls:
+  cert_pem: ((certificate))
+  private_key_pem: ((key))
