@@ -11,7 +11,7 @@ resource "tls_self_signed_cert" "tls_cert" {
   private_key_pem = "${tls_private_key.bbl_private_key.private_key_pem}"
 
   subject {
-    common_name = "${element(var.domain, 0)}"
+    common_name = "${element(var.domains, 0)}"
   }
 
   dns_names = "${var.domains}"
