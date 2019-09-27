@@ -2,8 +2,10 @@ product-name: pivotal-container-service
 product-properties:
   .pivotal-container-service.pks_tls:
     value:
-      cert_pem: {{.tls_cert}}
-      private_key_pem: {{.tls_private_key}}
+      cert_pem: |
+{{indent 8 .tls_cert}}
+      private_key_pem: |
+{{indent 8 .tls_private_key}}
   .properties.bosh-metric-sink-node-exporter:
     value: false
   .properties.bosh-metric-sink-outputs:
