@@ -196,7 +196,7 @@ jobs:
         - |
           version=$(cat terraforming-azure-tarball/version)
           tar xzf terraforming-azure-tarball/"terraforming-azure-v${version}.tar.gz" -C terraforming-azure
-          mv configuration-repo/terraform/extra-outputs.tf terraforming-azure/terraforming/terraforming-pks/
+          cp configuration-repo/terraform/* terraforming-azure/terraforming/terraforming-pks/
   - put: terraform-infra
     params:
       terraform_source: terraforming-azure/terraforming/terraforming-pks
@@ -208,6 +208,7 @@ jobs:
         env_name: ((resource_group))
         location: ((location))
         dns_suffix: ((dns_suffix))
+        domains: ["*.((resource_group)).((dns_suffix))"]
         ops_manager_image_uri: ""
 
 - name: install-opsman
@@ -461,28 +462,21 @@ jobs:
       trigger: true
       passed:
       - upload-and-stage-pks
+    - get: terraform-infra
+      passed:
+      - upgrade-opsman
+      params:
+        output_statefile: true
   - <<: *interpolate-creds
-  - task: generate-certificate
-    image: platform-automation-image
-    file: interpolated-files/tasks/generate-cert/task.yml
-    input_mapping:
-      files: interpolated-files
-      env: interpolated-files
-    params:
-      ENV_FILE: config/env.yml
-      DOMAINS: "*.((dns_suffix))"
-      CERT_FILE: config/pks_cert.yml
   - task: configure-pks
     image: platform-automation-image
     file: platform-automation-tasks/tasks/configure-product.yml
     input_mapping:
       config: interpolated-files
       env: interpolated-files
-      vars: certificate
     params:
       CONFIG_FILE: config/pks.yml
-      VARS_FILES: |
-        vars/cert.yml
+      ENV_FILE: config/env.yml
 
 - name: apply-product-changes
   serial: true
