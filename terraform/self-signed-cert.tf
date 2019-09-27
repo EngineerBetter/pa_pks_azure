@@ -8,7 +8,7 @@ resource "tls_private_key" "tls_private_key" {
 
 resource "tls_self_signed_cert" "tls_cert" {
   key_algorithm   = "RSA"
-  private_key_pem = "${tls_private_key.bbl_private_key.private_key_pem}"
+  private_key_pem = "${tls_private_key.tls_private_key.private_key_pem}"
 
   subject {
     common_name = "${element(var.domains, 0)}"
